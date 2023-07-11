@@ -9,8 +9,8 @@
 /***************************************************************/
 
 /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
-/*          DO NOT MODIFY THIS FILE!                            */
-/*          You should only the parse.c and run.c files!        */
+/*    DO NOT MODIFY THIS FILE!                                  */
+/*    You should only modify the run.c, run.h and util.h file!  */
 /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
 
 #include <assert.h>
@@ -32,11 +32,12 @@
 /**************************************************************/
 void load_program(char *program_filename) {                   
     FILE *prog;
-    int ii;
+    int ii, word;
     char buffer[33];
     //to notifying data & text segment size
     int flag = 0;
     int text_index = 0;
+    int data_index = 0;
 
     /* Open program file. */
     prog = fopen(program_filename, "r");
@@ -51,27 +52,24 @@ void load_program(char *program_filename) {
 
     //read 32bits + '\0' = 33
     while (fgets(buffer,33,prog) != NULL) {
- 
+
         if (flag == 0) {
 
             //check text segment size
             text_size = fromBinary(buffer);
             NUM_INST = text_size/4;
             //initial memory allocation of text segment
-            INST_INFO = malloc(sizeof(instruction)*(text_size/4));
-            init_inst_info(text_size/4);
+            INST_INFO = malloc(sizeof(instruction)*NUM_INST);
+            init_inst_info(NUM_INST);
 
-        } else if (flag == 1) {
+        } else if(flag == 1) {
 
             //check data segment size
             data_size = fromBinary(buffer);
-            //initial memory allocation of data segment
-            //if you would like to add data, you can re-allocate memory.
-            /* data_seg = malloc(sizeof(uint32_t)*(data_size/4)); */
 
         } else {
-            
-            if(ii < text_size) {
+
+            if (ii < text_size) {
                 INST_INFO[text_index++] = parsing_instr(buffer, ii);
             } else if(ii < text_size + data_size) {
                 parsing_data(buffer, ii-text_size);
@@ -98,9 +96,33 @@ void load_program(char *program_filename) {
 /*                                                          */
 /************************************************************/
 void initialize(char *program_filename) {
+    int i;
+
     init_memory();
     load_program(program_filename);
+
+    INSTRUCTION_COUNT = 0;
+    CYCLE_COUNT = 0;
+    BR_BIT = TRUE;
+    FORWARDING_BIT = TRUE; 
+
+    for (i = 0; i < PIPE_STAGE; i++){
+        CURRENT_STATE.PIPE[i] = 0;
+        CURRENT_STATE.PIPE_STALL[i] = FALSE;
+    }
+
+    CURRENT_STATE.IF_ID.Instr = 0;
+    CURRENT_STATE.IF_ID.NPC = 0;
+    CURRENT_STATE.ID_EX.NPC = 0;
+    CURRENT_STATE.ID_EX.REG1 = 0;
+    CURRENT_STATE.ID_EX.REG2 = 0;
+    CURRENT_STATE.ID_EX.IMM = 0;
+    CURRENT_STATE.EX_MEM.ALU_OUT = 0;
+    CURRENT_STATE.EX_MEM.BR_TARGET = 0;
+    CURRENT_STATE.MEM_WB.ALU_OUT = 0;
+
     RUN_BIT = TRUE;
+    FETCH_BIT = TRUE;
 }
 
 /***************************************************************/
@@ -119,62 +141,81 @@ int main(int argc, char *argv[]) {
     int mem_dump_set = 0;
     int debug_set = 0;
     int num_inst_set = 0;
+    int pipe_dump_set = 0;
 
     /* Error Checking */
     if (argc < 2) {
-        printf("Error: usage: %s [-m addr1:addr2] [-d] [-n num_instr] inputBinary\n", argv[0]);
+        printf("Usage: %s [-nobp] [-nof] [-m addr1:addr2] [-d] [-p] [-n num_instr] inputBinary\n", argv[0]);
         exit(1);
     }
 
     initialize(argv[argc-1]);
 
     //for checking parse result
-    //print_parse_result();
 
     while (count != argc-1) {
-
         if (strcmp(argv[count], "-m") == 0) {
-            tokens = str_split(argv[++count],':');
+            tokens = str_split(argv[++count], ':');
 
             addr1 = (int)strtol(*(tokens), NULL, 16);
             addr2 = (int)strtol(*(tokens+1), NULL, 16);
             mem_dump_set = 1;
-
-        } else if(strcmp(argv[count], "-d") == 0) {
+        } else if (strcmp(argv[count], "-d") == 0) {
             debug_set = 1;
-
-        } else if(strcmp(argv[count], "-n") == 0) {
+        } else if (strcmp(argv[count], "-n") == 0) {
             num_inst = (int)strtol(argv[++count], NULL, 10);
             num_inst_set = 1;
-
-        } else{
-            printf("Error: usage: %s [-m addr1:addr2] [-d] [-n num_instr] inputBinary\n", argv[0]);
+        } else if (strcmp(argv[count], "-p") == 0) {
+//		num_inst = (int)strtol(argv[++count], NULL, 10);
+	        pipe_dump_set = 1;	
+        } else {
+            printf("Usage: %s [-m addr1:addr2] [-d] [-p] [-n num_instr] inputBinary\n", argv[0]);
             exit(1);
         }
         count++;
     }
 
     if (num_inst_set) {
-        i = num_inst;
+        MAX_INSTRUCTION_NUM = num_inst;
+    } else {
+        MAX_INSTRUCTION_NUM = i;
     }
 
-    if (debug_set) {
-        printf("Simulating for %d cycles...\n\n", i);
+    if (num_inst_set && num_inst <= 0) {
+        printf("Error: The number of instructnons should be positive integer\n");
+        return -1;
+    }
 
-        for(; i > 0; i--){
+    if (debug_set || pipe_dump_set) {
+
+        printf("Simulating for %lu instructions...\n\n", MAX_INSTRUCTION_NUM);
+
+        while (RUN_BIT) {
             cycle();
-            rdump();
 
-            if (mem_dump_set) {
-                mdump(addr1, addr2);
+            if (pipe_dump_set) {
+                pdump();
+            }
+
+            if (debug_set) {
+                rdump();	
             }
         }
 
+        if(!debug_set) {
+            rdump();
+        }
+
+        if(mem_dump_set) {
+            mdump(addr1, addr2);
+        }
+        printf("Simulator halted after %lu cycles\n\n", CYCLE_COUNT);
+
     } else {
-        run(i);
+        run();
         rdump();
 
-        if (mem_dump_set) {
+        if(mem_dump_set) {
             mdump(addr1, addr2);
         }
     }
