@@ -62,6 +62,8 @@ void ID(){
 
     CURRENT_STATE.PIPE[ID_STAGE]=CURRENT_STATE.PIPE[IF_STAGE];
 
+    CURRENT_STATE.ID_EX.NPC=CURRENT_STATE.IF_ID.NPC;
+
     //LOAD instruction ID stage-1
     CURRENT_STATE.ID_EX.NPC=CURRENT_STATE.IF_ID.NPC;
 
@@ -70,6 +72,9 @@ void ID(){
     CURRENT_STATE.ID_EX.REG1=CURRENT_STATE.REGS[RS(CURRENT_STATE.IF_ID.Instr)];
     CURRENT_STATE.ID_EX.REG2=CURRENT_STATE.REGS[RT(CURRENT_STATE.IF_ID.Instr)];
     CURRENT_STATE.ID_EX.IMM=SIGN_EX(IMM(CURRENT_STATE.IF_ID.Instr)); 
+
+    //Modified pipeline datapath for LOAD instruction
+    CURRENT_STATE.ID_EX.DEST=RT(CURRENT_STATE.IF_ID.Instr);
 
 
 }
@@ -87,6 +92,8 @@ void EX(){
 
     CURRENT_STATE.PIPE[EX_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
 
+    CURRENT_STATE.EX_MEM.NPC=CURRENT_STATE.ID_EX.NPC;
+
     //LOAD instruction EX stage
     //READ REG1 and SIGN_EX_IMM
     //ALU operation
@@ -94,6 +101,9 @@ void EX(){
     //In the book, it assumes that REG2 will be stored in EX/MEM only in STORE instruction.
     //But in the code, i will store REG2 in EX/MEM in LOAD and STORE inst universally.
     CURRENT_STATE.EX_MEM.REG2=CURRENT_STATE.ID_EX.REG2;
+
+    //Modified pipeline datapath for LOAD instruction
+    CURRENT_STATE.EX_MEM.DEST=CURRENT_STATE.ID_EX.DEST;
 
 }
 
@@ -106,13 +116,18 @@ void EX(){
 /***************************************************************/
 void MEM(){
 
-    CURRENT_STATE[MEM_STAGE]=CURRENT_STATE.PIPE[EX_STAGE];
+    CURRENT_STATE.PIPE[MEM_STAGE]=CURRENT_STATE.PIPE[EX_STAGE];
+
+    CURRENT_STATE.MEM_WB.NPC=CURRENT_STATE.EX_MEM.NPC;
 
     //LOAD instruction MEM stage
     CURRENT_STATE.MEM_WB.MEM_OUT=mem_read_32(CURRENT_STATE.EX_MEM.ALU_OUT);
 
     //STORE instruction MEM stage
     mem_write_32(CURRENT_STATE.EX_MEM.ALU_OUT,CURRENT_STATE.EX_MEM.REG2);
+
+    //Modified pipeline datapath for LOAD instruction
+    CURRENT_STATE.MEM_WB.DEST=CURRENT_STATE.EX_MEM.DEST;
 
 }
 
@@ -125,14 +140,20 @@ void MEM(){
 /***************************************************************/
 void WB(){
 
-    CURRENT_STATE[WB_STAGE]=CURRENT_STATE.PIPE[MEM_STAGE];
+    CURRENT_STATE.PIPE[WB_STAGE]=CURRENT_STATE.PIPE[MEM_STAGE];
 
     //LOAD instruction WB stage
-    CURRENT_STATE.ID_EX.REG2=CURRENT_STATE.MEM_WB.MEM_OUT;// Will be modified because of Design Bugs
+    // Will be modified because of Design Bugs
+    // CURRENT_STATE.ID_EX.REG2=CURRENT_STATE.MEM_WB.MEM_OUT;
+
+    //Modified pipeline datapath for LOAD instruction
+    CURRENT_STATE.REGS[CURRENT_STATE.MEM_WB.DEST]=CURRENT_STATE.MEM_WB.MEM_OUT;
 
     //STORE instruction nothing to do
 
     
+
+
 
 }
 
