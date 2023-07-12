@@ -37,6 +37,7 @@ void IF(){
     CURRENT_STATE.PIPE[IF_STAGE]=CURRENT_STATE.PC;
 
     //LOAD instruction IF stage-1
+    //STORE instruction
     CURRENT_STATE.IF_ID.Instr=get_inst_info(CURRENT_STATE.PC);
 
     //LOAD instruction IF stage-2
@@ -65,6 +66,7 @@ void ID(){
     CURRENT_STATE.ID_EX.NPC=CURRENT_STATE.IF_ID.NPC;
 
     //LOAD instruction ID stage-2
+    //STORE instruction
     CURRENT_STATE.ID_EX.REG1=CURRENT_STATE.REGS[RS(CURRENT_STATE.IF_ID.Instr)];
     CURRENT_STATE.ID_EX.REG2=CURRENT_STATE.REGS[RT(CURRENT_STATE.IF_ID.Instr)];
     CURRENT_STATE.ID_EX.IMM=SIGN_EX(IMM(CURRENT_STATE.IF_ID.Instr)); 
@@ -89,6 +91,9 @@ void EX(){
     //READ REG1 and SIGN_EX_IMM
     //ALU operation
     CURRENT_STATE.EX_MEM.ALU_OUT=CURRENT_STATE.ID_EX.REG1+CURRENT_STATE.ID_EX.IMM;
+    //In the book, it assumes that REG2 will be stored in EX/MEM only in STORE instruction.
+    //But in the code, i will store REG2 in EX/MEM in LOAD and STORE inst universally.
+    CURRENT_STATE.EX_MEM.REG2=CURRENT_STATE.ID_EX.REG2;
 
 }
 
@@ -106,6 +111,9 @@ void MEM(){
     //LOAD instruction MEM stage
     CURRENT_STATE.MEM_WB.MEM_OUT=mem_read_32(CURRENT_STATE.EX_MEM.ALU_OUT);
 
+    //STORE instruction MEM stage
+    mem_write_32(CURRENT_STATE.EX_MEM.ALU_OUT,CURRENT_STATE.EX_MEM.REG2);
+
 }
 
 /***************************************************************/
@@ -121,6 +129,10 @@ void WB(){
 
     //LOAD instruction WB stage
     CURRENT_STATE.ID_EX.REG2=CURRENT_STATE.MEM_WB.MEM_OUT;// Will be modified because of Design Bugs
+
+    //STORE instruction nothing to do
+
+    
 
 }
 

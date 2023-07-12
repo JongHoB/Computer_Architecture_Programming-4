@@ -59,6 +59,7 @@ typedef struct EXMEM{
     uint32_t NPC;
     uint32_t BR_TARGET;
     uint32_t ALU_OUT;
+    uint32_t REG2;
     uint32_t W_VALUE;
     uint32_t BR_TAKE;
     unsigned char DEST;
