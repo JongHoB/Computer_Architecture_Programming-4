@@ -42,7 +42,8 @@
 
 
 typedef struct IFID{
-    uint32_t Instr;
+    //uint32_t Instr;
+    instruction * Instr;
     uint32_t NPC;
 };
 
@@ -69,7 +70,7 @@ typedef struct EXMEM{
 
 typedef struct MEMWB{
     uint32_t NPC;
-    uint32_t ALU_OUT;
+    uint32_t ALU_OUT;//??
     uint32_t MEM_OUT;
     uint32_t BR_TAKE;
     unsigned char DEST;
