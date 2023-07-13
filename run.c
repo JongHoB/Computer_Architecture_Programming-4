@@ -74,7 +74,74 @@ void ID(){
     CURRENT_STATE.ID_EX.IMM=SIGN_EX(IMM(CURRENT_STATE.IF_ID.Instr)); 
 
     //Modified pipeline datapath for LOAD instruction
+    //lw,sw,beq instruction Write Register comes from RT field
     CURRENT_STATE.ID_EX.DEST=RT(CURRENT_STATE.IF_ID.Instr);
+    
+    //R-Type
+    //Write Register comes from RD field
+    if(OPCODE(CURRENT_STATE.IF_ID.Instr)==0x0)
+    {
+        CURRENT_STATE.ID_EX.DEST=RD(CURRENT_STATE.IF_ID.Instr);
+    }
+
+    //EX HAZARD
+    //IF EX/MEM is lw or R format, and EX/MEM.DEST is equal to ID/EX.REG1 or ID/EX.REG2
+    //NEED TO FORWARD EX/MEM.ALU_OUT to ALU operand
+    switch(OPCODE(CURRENT_STATE.PIPE[EX_STAGE])){
+        case 0x23://lw
+        case 0x0://R-Type
+
+        //FORWARDING_BIT=FALSE; --> WHY BORDER...?
+
+        if(CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST==RS(CURRENT_STATE.PIPE[ID_STAGE]))
+        {
+            CURRENT_STATE.ID_EX.REG1=CURRENT_STATE.EX_MEM.ALU_OUT;
+        }
+        if(CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST==RT(CURRENT_STATE.PIPE[ID_STAGE]))
+        {
+            CURRENT_STATE.ID_EX.REG2=CURRENT_STATE.EX_MEM.ALU_OUT;
+        }
+        break;
+        default:
+        break;
+    }
+
+    //MEM HAZARD
+    //IF MEM/WB is lw or R format, and MEM/WB.DEST is equal to ID/EX.REG1 or ID/EX.REG2
+    //NEED TO FORWARD MEM/WB.MEM_OUT to ALU operand
+    int inst=0;
+    switch(OPCODE(CURRENT_STATE.PIPE[MEM_STAGE])){
+        case 0x23://lw
+        inst=1;
+        case 0x0://R-Type
+
+        //FORWARDING_BIT=FALSE; --> WHY BORDER...?
+        
+        if(CURRENT_STATE.MEM_WB.DEST!=0&&CURRENT_STATE.MEM_WB.DEST==RS(CURRENT_STATE.PIPE[ID_STAGE])&&!(OPCODE(CURRENT_STATE.PIPE[EX_STAGE])==(0x23||0x0)&&CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST!=RS(CURRENT_STATE.PIPE[ID_STAGE])))
+        {
+            /***************************************************************/
+            /*  if (MEM/WB.RegWrite and (MEM/WB.RegisterRd ≠  0)           */ 
+            /*  and not(EX/MEM.RegWrite and (EX/MEM.RegisterRd ≠  0)       */ 
+            /*          and (EX/MEM.RegisterRd ≠  ID/EX.RegisterRs))       */ 
+            /*  and  (MEM/WB.RegisterRd = ID/EX.RegisterRs)) ForwardA = 01 */
+            /***************************************************************/ 
+            CURRENT_STATE.ID_EX.REG1=(inst==0)?CURRENT_STATE.MEM_WB.ALU_OUT:CURRENT_STATE.MEM_WB.MEM_OUT;
+               
+        }
+        if(CURRENT_STATE.MEM_WB.DEST!=0&&CURRENT_STATE.MEM_WB.DEST==RT(CURRENT_STATE.PIPE[ID_STAGE])&&!(OPCODE(CURRENT_STATE.PIPE[EX_STAGE])==(0x23||0x0)&&CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST!=RT(CURRENT_STATE.PIPE[ID_STAGE])))
+        {
+            /***************************************************************/
+            /*  if (MEM/WB.RegWrite and (MEM/WB.RegisterRd ≠  0)           */
+            /*  and not(EX/MEM.RegWrite and (EX/MEM.RegisterRd ≠  0)       */ 
+            /*          and (EX/MEM.RegisterRd ≠  ID/EX.RegisterRt))       */ 
+            /*  and  (MEM/WB.RegisterRd = ID/EX.RegisterRt)) ForwardB = 01 */
+            /***************************************************************/
+            CURRENT_STATE.ID_EX.REG2=(inst==0)?CURRENT_STATE.MEM_WB.ALU_OUT:CURRENT_STATE.MEM_WB.MEM_OUT;    
+        }
+        break;
+        default:
+        break;
+    }
 
 
 }
@@ -103,7 +170,14 @@ void EX(){
     CURRENT_STATE.EX_MEM.REG2=CURRENT_STATE.ID_EX.REG2;
 
     //Modified pipeline datapath for LOAD instruction
+    //R-Type Dest is RD field
     CURRENT_STATE.EX_MEM.DEST=CURRENT_STATE.ID_EX.DEST;
+
+    //lw,sw instruction uses SIGN_EX_IMM as ALU operand
+
+    //R-Type and beq instruction uses Read Data2(REG2) as ALU operand
+
+    //
 
 }
 
@@ -120,6 +194,9 @@ void MEM(){
 
     CURRENT_STATE.MEM_WB.NPC=CURRENT_STATE.EX_MEM.NPC;
 
+    //FOR MEM HAZARD
+    CURRENT_STATE.MEM_WB.ALU_OUT=CURRENT_STATE.EX_MEM.ALU_OUT;
+
     //LOAD instruction MEM stage
     CURRENT_STATE.MEM_WB.MEM_OUT=mem_read_32(CURRENT_STATE.EX_MEM.ALU_OUT);
 
@@ -128,6 +205,8 @@ void MEM(){
 
     //Modified pipeline datapath for LOAD instruction
     CURRENT_STATE.MEM_WB.DEST=CURRENT_STATE.EX_MEM.DEST;
+
+    //beq instruction and ALU_ZERO then branch address
 
 }
 
@@ -151,6 +230,8 @@ void WB(){
 
     //STORE instruction nothing to do
 
+    //R-Type writes Register but not MemoryToRegister
+
     
 
 
@@ -166,6 +247,12 @@ void WB(){
 /***************************************************************/
 void process_instruction()
 {
+    WD();
+    MEM();
+    EX();
+    ID();
+    IF();
+
 	/** Implement this function */
     if ((CURRENT_STATE.PC - MEM_TEXT_START) / 4== NUM_INST)
     {
