@@ -116,7 +116,7 @@ void ID(){
         case 0x0://R-Type
 
         //FORWARDING_BIT=FALSE; --> WHY BORDER...?
-        
+
         if(CURRENT_STATE.MEM_WB.DEST!=0&&CURRENT_STATE.MEM_WB.DEST==RS(CURRENT_STATE.PIPE[ID_STAGE])&&!(OPCODE(CURRENT_STATE.PIPE[EX_STAGE])==(0x23||0x0)&&CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST!=RS(CURRENT_STATE.PIPE[ID_STAGE])))
         {
             /***************************************************************/
@@ -207,6 +207,11 @@ void MEM(){
     CURRENT_STATE.MEM_WB.DEST=CURRENT_STATE.EX_MEM.DEST;
 
     //beq instruction and ALU_ZERO then branch address
+
+    //lw and sw sequence instruction DATA HAZARD
+    if(OPCODE(CURRENT_STATE.PIPE[WB_STAGE])==0x23&&OPCODE(CURRENT_STATE.PIPE[MEM_STAGE])==0x2b){
+        mem_write_32(CURRENT_STATE.EX_MEM.ALU_OUT,CURRENT_STATE.MEM_WB.MEM_OUT);
+    }
 
 }
 
