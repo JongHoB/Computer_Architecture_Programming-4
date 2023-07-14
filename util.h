@@ -71,8 +71,7 @@ typedef struct inst_s {
 } instruction;
 
 typedef struct{
-    //uint32_t Instr;
-    instruction * Instr;
+    uint32_t Instr;
     uint32_t NPC;
 }IFID;
 
@@ -121,10 +120,12 @@ typedef struct CPU_State_Struct {
     uint32_t PIPE[PIPE_STAGE];	/* PC being executed at each stage*/
     uint32_t PIPE_STALL[PIPE_STAGE];
 
-    IFID IF_ID;
-    IDEX ID_EX;
-    EXMEM EX_MEM;
-    MEMWB MEM_WB;
+    IFID IF_ID;//0
+    IDEX ID_EX;//1
+    EXMEM EX_MEM;//2
+    MEMWB MEM_WB;//3
+
+    bool PIPELINE_REGS_LOCK[4]; //To lock pipeline registers
     
     //To choose right PC
     uint32_t IF_PC;

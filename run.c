@@ -34,11 +34,21 @@ instruction* get_inst_info(uint32_t pc)
 /***************************************************************/
 void IF(){
 
+    //ID stage stalled
+    //IF stage will read same instruction in ID stage
+    if(PIPE_STALL[IF_STAGE]==CURRENT_STATE.PC){
+        CURRENT_STATE.PC = PIPE_STALL[ID_STAGE];
+        PIPE_STALL[IF_STAGE]=NULL;
+
+        PIPELINE_REGS_LOCK[0]=FALSE;
+    }
+
+
     CURRENT_STATE.PIPE[IF_STAGE]=CURRENT_STATE.PC;
 
     //LOAD instruction IF stage-1
     //STORE instruction
-    CURRENT_STATE.IF_ID.Instr=get_inst_info(CURRENT_STATE.PC);
+    CURRENT_STATE.IF_ID.Instr=CURRENT_STATE.PIPE[IF_STAGE];
 
     //LOAD instruction IF stage-2
     CURRENT_STATE.PC+=4;
@@ -62,6 +72,31 @@ void ID(){
 
     CURRENT_STATE.PIPE[ID_STAGE]=CURRENT_STATE.PIPE[IF_STAGE];
 
+    if(PIPE_STALL[ID_STAGE]==CURRENT_STATE.PIPE[ID_STAGE]){
+        PIPE_STALL[ID_STAGE]=NULL;
+    }
+
+    //HAZARD DETECTION UNIT
+    //It can insert the stall between load
+    //IF ID/EX is lw format, and ID/EX.REG2 is equal to IF/ID.REG1 or ID/EX.REG2 is equal to IF/ID.REG2
+    //Stall the pipeline
+    if(OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==0x23&&((RT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))))||(RT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])))){
+
+        //IF ID stage is stalled, IF stage must also be stalled
+        //PC register and IF/ID register must be preserved
+        PIPE_STALL[ID_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
+        PIPE_STALL[IF_STAGE]=CURRENT_STATE.IF_ID.NPC;
+        PIPELINE_REGS_LOCK[0]=TRUE;
+
+        //AFTER ID stage, each stage must excute NOP instruction
+        PIPE_STALL[EX_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
+        PIPE_STALL[MEM_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
+        PIPE_STALL[WB_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
+
+        IF_PC=CURRENT_STATE.PIPE[ID_STAGE];// why border...?
+        return;
+    }
+
     CURRENT_STATE.ID_EX.NPC=CURRENT_STATE.IF_ID.NPC;
 
     //LOAD instruction ID stage-1
@@ -69,19 +104,19 @@ void ID(){
 
     //LOAD instruction ID stage-2
     //STORE instruction
-    CURRENT_STATE.ID_EX.REG1=CURRENT_STATE.REGS[RS(CURRENT_STATE.IF_ID.Instr)];
-    CURRENT_STATE.ID_EX.REG2=CURRENT_STATE.REGS[RT(CURRENT_STATE.IF_ID.Instr)];
-    CURRENT_STATE.ID_EX.IMM=SIGN_EX(IMM(CURRENT_STATE.IF_ID.Instr)); 
+    CURRENT_STATE.ID_EX.REG1=CURRENT_STATE.REGS[RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))];
+    CURRENT_STATE.ID_EX.REG2=CURRENT_STATE.REGS[RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))];;
+    CURRENT_STATE.ID_EX.IMM=SIGN_EX(IMM(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))); 
 
     //Modified pipeline datapath for LOAD instruction
     //lw,sw,beq instruction Write Register comes from RT field
-    CURRENT_STATE.ID_EX.DEST=RT(CURRENT_STATE.IF_ID.Instr);
+    CURRENT_STATE.ID_EX.DEST=RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]));
     
     //R-Type
     //Write Register comes from RD field
-    if(OPCODE(CURRENT_STATE.IF_ID.Instr)==0x0)
+    if(OPCODE(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))==0x0)
     {
-        CURRENT_STATE.ID_EX.DEST=RD(CURRENT_STATE.IF_ID.Instr);
+        CURRENT_STATE.ID_EX.DEST=RD(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]));
     }
 
     //EX HAZARD
@@ -143,6 +178,8 @@ void ID(){
         break;
     }
 
+    
+
 return;
 }
 
@@ -158,6 +195,13 @@ return;
 void EX(){
 
     CURRENT_STATE.PIPE[EX_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
+
+    //EX stage NOP instruction because of ID stage stall
+    if(PIPE_STALL[EX_STAGE]==CURRENT_STATE.PIPE[EX_STAGE]){
+        PIPE_STALL[EX_STAGE]=NULL;
+        //CURRENT_STATE.PIPE[EX_STAGE]=NULL;
+        return;
+    }
 
     CURRENT_STATE.EX_MEM.NPC=CURRENT_STATE.ID_EX.NPC;
 
@@ -190,6 +234,13 @@ return;
 void MEM(){
 
     CURRENT_STATE.PIPE[MEM_STAGE]=CURRENT_STATE.PIPE[EX_STAGE];
+
+    //MEM stage NOP instruction because of ID stage stall
+    if(PIPE_STALL[MEM_STAGE]==CURRENT_STATE.PIPE[MEM_STAGE]){
+        PIPE_STALL[MEM_STAGE]=NULL;
+        //CURRENT_STATE.PIPE[MEM_STAGE]=NULL;
+        return;
+    }
 
     CURRENT_STATE.MEM_WB.NPC=CURRENT_STATE.EX_MEM.NPC;
 
@@ -225,6 +276,13 @@ return;
 void WB(){
 
     CURRENT_STATE.PIPE[WB_STAGE]=CURRENT_STATE.PIPE[MEM_STAGE];
+
+    //WB stage NOP instruction because of ID stage stall
+    if(PIPE_STALL[WB_STAGE]==CURRENT_STATE.PIPE[WB_STAGE]){
+        PIPE_STALL[WB_STAGE]=NULL;
+        //CURRENT_STATE.PIPE[WB_STAGE]=NULL;
+        return;
+    }
 
     //LOAD instruction WB stage
     // Will be modified because of Design Bugs
