@@ -207,13 +207,13 @@ void run() {
         return;
     }
 
-    printf("Simulating for %lu instructions...\n\n", MAX_INSTRUCTION_NUM);
+    printf("Simulating for %llu instructions...\n\n", MAX_INSTRUCTION_NUM);
 
     while (RUN_BIT) {
 	    cycle();
     }
 
-    printf("Simulator halted after %lu cycles\n\n", CYCLE_COUNT);
+    printf("Simulator halted after %llu cycles\n\n", CYCLE_COUNT);
 }
 
 /***************************************************************/
@@ -234,7 +234,7 @@ void go() {
 	    cycle();
     }
 
-    printf("Simulator halted after %lu cycles\n\n", CYCLE_COUNT);
+    printf("Simulator halted after %llu cycles\n\n", CYCLE_COUNT);
 }
 
 /***************************************************************/
@@ -287,7 +287,7 @@ void pdump() {
 
     printf("Current pipeline PC state :\n");
     printf("-------------------------------------\n");
-    printf("CYCLE %lu:", CYCLE_COUNT );
+    printf("CYCLE %llu:", CYCLE_COUNT );
 
     for (k = 0; k < 5; k++) {
         if (CURRENT_STATE.PIPE[k]) {

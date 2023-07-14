@@ -47,7 +47,7 @@ void IF(){
     
     
 
-
+return;
 }
 
 /***************************************************************/
@@ -87,17 +87,17 @@ void ID(){
     //EX HAZARD
     //IF EX/MEM is lw or R format, and EX/MEM.DEST is equal to ID/EX.REG1 or ID/EX.REG2
     //NEED TO FORWARD EX/MEM.ALU_OUT to ALU operand
-    switch(OPCODE(CURRENT_STATE.PIPE[EX_STAGE])){
+    switch(OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))){
         case 0x23://lw
         case 0x0://R-Type
 
         //FORWARDING_BIT=FALSE; --> WHY BORDER...?
 
-        if(CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST==RS(CURRENT_STATE.PIPE[ID_STAGE]))
+        if(CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST==RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])))
         {
             CURRENT_STATE.ID_EX.REG1=CURRENT_STATE.EX_MEM.ALU_OUT;
         }
-        if(CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST==RT(CURRENT_STATE.PIPE[ID_STAGE]))
+        if(CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST==RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])))
         {
             CURRENT_STATE.ID_EX.REG2=CURRENT_STATE.EX_MEM.ALU_OUT;
         }
@@ -110,14 +110,14 @@ void ID(){
     //IF MEM/WB is lw or R format, and MEM/WB.DEST is equal to ID/EX.REG1 or ID/EX.REG2
     //NEED TO FORWARD MEM/WB.MEM_OUT to ALU operand
     int inst=0;
-    switch(OPCODE(CURRENT_STATE.PIPE[MEM_STAGE])){
+    switch(OPCODE(get_inst_info(CURRENT_STATE.PIPE[MEM_STAGE]))){
         case 0x23://lw
         inst=1;
         case 0x0://R-Type
 
         //FORWARDING_BIT=FALSE; --> WHY BORDER...?
 
-        if(CURRENT_STATE.MEM_WB.DEST!=0&&CURRENT_STATE.MEM_WB.DEST==RS(CURRENT_STATE.PIPE[ID_STAGE])&&!(OPCODE(CURRENT_STATE.PIPE[EX_STAGE])==(0x23||0x0)&&CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST!=RS(CURRENT_STATE.PIPE[ID_STAGE])))
+        if(CURRENT_STATE.MEM_WB.DEST!=0&&CURRENT_STATE.MEM_WB.DEST==RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))&&!(OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==(0x23||0x0)&&CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST!=RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))))
         {
             /***************************************************************/
             /*  if (MEM/WB.RegWrite and (MEM/WB.RegisterRd ≠  0)           */ 
@@ -128,7 +128,7 @@ void ID(){
             CURRENT_STATE.ID_EX.REG1=(inst==0)?CURRENT_STATE.MEM_WB.ALU_OUT:CURRENT_STATE.MEM_WB.MEM_OUT;
                
         }
-        if(CURRENT_STATE.MEM_WB.DEST!=0&&CURRENT_STATE.MEM_WB.DEST==RT(CURRENT_STATE.PIPE[ID_STAGE])&&!(OPCODE(CURRENT_STATE.PIPE[EX_STAGE])==(0x23||0x0)&&CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST!=RT(CURRENT_STATE.PIPE[ID_STAGE])))
+        if(CURRENT_STATE.MEM_WB.DEST!=0&&CURRENT_STATE.MEM_WB.DEST==RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))&&!(OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==(0x23||0x0)&&CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST!=RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))))
         {
             /***************************************************************/
             /*  if (MEM/WB.RegWrite and (MEM/WB.RegisterRd ≠  0)           */
@@ -143,7 +143,7 @@ void ID(){
         break;
     }
 
-
+return;
 }
 
 /***************************************************************/
@@ -177,8 +177,7 @@ void EX(){
 
     //R-Type and beq instruction uses Read Data2(REG2) as ALU operand
 
-    //
-
+return;
 }
 
 /***************************************************************/
@@ -209,10 +208,11 @@ void MEM(){
     //beq instruction and ALU_ZERO then branch address
 
     //lw and sw sequence instruction DATA HAZARD
-    if(OPCODE(CURRENT_STATE.PIPE[WB_STAGE])==0x23&&OPCODE(CURRENT_STATE.PIPE[MEM_STAGE])==0x2b){
+    if(OPCODE(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE]))==0x23&&OPCODE(get_inst_info(CURRENT_STATE.PIPE[MEM_STAGE]))==0x2b){
         mem_write_32(CURRENT_STATE.EX_MEM.ALU_OUT,CURRENT_STATE.MEM_WB.MEM_OUT);
     }
 
+return;
 }
 
 /***************************************************************/
@@ -240,7 +240,7 @@ void WB(){
     
 
 
-
+return;
 }
 
 /***************************************************************/
@@ -252,103 +252,103 @@ void WB(){
 /***************************************************************/
 void process_instruction()
 {
-    WD();
+    WB();
     MEM();
     EX();
     ID();
     IF();
 
-	/** Implement this function */
-    if ((CURRENT_STATE.PC - MEM_TEXT_START) / 4== NUM_INST)
-    {
-        RUN_BIT = FALSE;
-        return;
-    }
+	// /** Implement this function */
+    // if ((CURRENT_STATE.PC - MEM_TEXT_START) / 4== NUM_INST)
+    // {
+    //     RUN_BIT = FALSE;
+    //     return;
+    // }
 
-    instruction *current=get_inst_info(CURRENT_STATE.PC);
-    CURRENT_STATE.PC+=4;
+    // instruction *current=get_inst_info(CURRENT_STATE.PC);
+    // CURRENT_STATE.PC+=4;
 
-    uint32_t jump;
-    switch(OPCODE(current))
-        {
-            //Type I
-            case 0x9:		//(0x001001)ADDIU
-            CURRENT_STATE.REGS[RT(current)]=CURRENT_STATE.REGS[RS(current)]+SIGN_EX(IMM(current));
-            break;
-            case 0xc:		//(0x001100)ANDI
-            CURRENT_STATE.REGS[RT(current)]=CURRENT_STATE.REGS[RS(current)]&IMM(current);
-            break;
-            case 0xf:		//(0x001111)LUI	
-            CURRENT_STATE.REGS[RT(current)]=IMM(current)<<16;
-            break;
-            case 0xd:		//(0x001101)ORI
-            CURRENT_STATE.REGS[RT(current)]=CURRENT_STATE.REGS[RS(current)]|IMM(current);
-            break;
-            case 0xb:		//(0x001011)SLTIU
-            CURRENT_STATE.REGS[RT(current)]=(CURRENT_STATE.REGS[RS(current)] < SIGN_EX(IMM(current))) ? 1 : 0;
-            break;
-            case 0x23:		//(0x100011)LW
-            CURRENT_STATE.REGS[RT(current)] = mem_read_32(CURRENT_STATE.REGS[RS(current)] + SIGN_EX(IMM(current)));
-            break;
-            case 0x2b:		//(0x101011)SW
-            mem_write_32(CURRENT_STATE.REGS[RS(current)] + SIGN_EX(IMM(current)), CURRENT_STATE.REGS[RT(current)]);
-            break;
-            case 0x4:		//(0x000100)BEQ
-            BRANCH_INST(CURRENT_STATE.REGS[RS(current)] == CURRENT_STATE.REGS[RT(current)],CURRENT_STATE.PC+IDISP(current),);
-            break;
-            case 0x5:		//(0x000101)BNE
-            BRANCH_INST(CURRENT_STATE.REGS[RS(current)] != CURRENT_STATE.REGS[RT(current)],CURRENT_STATE.PC+IDISP(current),);
-            break;
+    // uint32_t jump;
+    // switch(OPCODE(current))
+    //     {
+    //         //Type I
+    //         case 0x9:		//(0x001001)ADDIU
+    //         CURRENT_STATE.REGS[RT(current)]=CURRENT_STATE.REGS[RS(current)]+SIGN_EX(IMM(current));
+    //         break;
+    //         case 0xc:		//(0x001100)ANDI
+    //         CURRENT_STATE.REGS[RT(current)]=CURRENT_STATE.REGS[RS(current)]&IMM(current);
+    //         break;
+    //         case 0xf:		//(0x001111)LUI	
+    //         CURRENT_STATE.REGS[RT(current)]=IMM(current)<<16;
+    //         break;
+    //         case 0xd:		//(0x001101)ORI
+    //         CURRENT_STATE.REGS[RT(current)]=CURRENT_STATE.REGS[RS(current)]|IMM(current);
+    //         break;
+    //         case 0xb:		//(0x001011)SLTIU
+    //         CURRENT_STATE.REGS[RT(current)]=(CURRENT_STATE.REGS[RS(current)] < SIGN_EX(IMM(current))) ? 1 : 0;
+    //         break;
+    //         case 0x23:		//(0x100011)LW
+    //         CURRENT_STATE.REGS[RT(current)] = mem_read_32(CURRENT_STATE.REGS[RS(current)] + SIGN_EX(IMM(current)));
+    //         break;
+    //         case 0x2b:		//(0x101011)SW
+    //         mem_write_32(CURRENT_STATE.REGS[RS(current)] + SIGN_EX(IMM(current)), CURRENT_STATE.REGS[RT(current)]);
+    //         break;
+    //         case 0x4:		//(0x000100)BEQ
+    //         BRANCH_INST(CURRENT_STATE.REGS[RS(current)] == CURRENT_STATE.REGS[RT(current)],CURRENT_STATE.PC+IDISP(current),);
+    //         break;
+    //         case 0x5:		//(0x000101)BNE
+    //         BRANCH_INST(CURRENT_STATE.REGS[RS(current)] != CURRENT_STATE.REGS[RT(current)],CURRENT_STATE.PC+IDISP(current),);
+    //         break;
 
-            //TYPE R
-            case 0x0:		//(0x000000)ADDU, AND, NOR, OR, SLTU, SLL, SRL, SUBU  if JR
-            switch(FUNC(current))
-            {
-                case 0x21:
-                CURRENT_STATE.REGS[RD(current)] = CURRENT_STATE.REGS[RS(current)] + CURRENT_STATE.REGS[RT(current)];
-                break;
-                case 0x24:
-                CURRENT_STATE.REGS[RD(current)] = CURRENT_STATE.REGS[RS(current)] & CURRENT_STATE.REGS[RT(current)];
-                break;
-                case 0x08:
-                CURRENT_STATE.PC=CURRENT_STATE.REGS[RS(current)];
-                break;
-                case 0x27:
-                CURRENT_STATE.REGS[RD(current)] = ~(CURRENT_STATE.REGS[RS(current)] | CURRENT_STATE.REGS[RT(current)]);
-                break;
-                case 0x25:
-                CURRENT_STATE.REGS[RD(current)] = CURRENT_STATE.REGS[RS(current)] | CURRENT_STATE.REGS[RT(current)];
-                break;
-                case 0x2B:
-                CURRENT_STATE.REGS[RD(current)] = (CURRENT_STATE.REGS[RS(current)] < CURRENT_STATE.REGS[RT(current)]) ? 1 : 0;
-                break;
-                case 0x00:
-                CURRENT_STATE.REGS[RD(current)] = CURRENT_STATE.REGS[RT(current)] << SHAMT(current);
-                break;
-                case 0x02:
-                CURRENT_STATE.REGS[RD(current)] = CURRENT_STATE.REGS[RT(current)] >> SHAMT(current);
-                break;
-                case 0x23:
-                CURRENT_STATE.REGS[RD(current)] = CURRENT_STATE.REGS[RS(current)] - CURRENT_STATE.REGS[RT(current)];
-                break;
-            }
-            break;
+    //         //TYPE R
+    //         case 0x0:		//(0x000000)ADDU, AND, NOR, OR, SLTU, SLL, SRL, SUBU  if JR
+    //         switch(FUNC(current))
+    //         {
+    //             case 0x21:
+    //             CURRENT_STATE.REGS[RD(current)] = CURRENT_STATE.REGS[RS(current)] + CURRENT_STATE.REGS[RT(current)];
+    //             break;
+    //             case 0x24:
+    //             CURRENT_STATE.REGS[RD(current)] = CURRENT_STATE.REGS[RS(current)] & CURRENT_STATE.REGS[RT(current)];
+    //             break;
+    //             case 0x08:
+    //             CURRENT_STATE.PC=CURRENT_STATE.REGS[RS(current)];
+    //             break;
+    //             case 0x27:
+    //             CURRENT_STATE.REGS[RD(current)] = ~(CURRENT_STATE.REGS[RS(current)] | CURRENT_STATE.REGS[RT(current)]);
+    //             break;
+    //             case 0x25:
+    //             CURRENT_STATE.REGS[RD(current)] = CURRENT_STATE.REGS[RS(current)] | CURRENT_STATE.REGS[RT(current)];
+    //             break;
+    //             case 0x2B:
+    //             CURRENT_STATE.REGS[RD(current)] = (CURRENT_STATE.REGS[RS(current)] < CURRENT_STATE.REGS[RT(current)]) ? 1 : 0;
+    //             break;
+    //             case 0x00:
+    //             CURRENT_STATE.REGS[RD(current)] = CURRENT_STATE.REGS[RT(current)] << SHAMT(current);
+    //             break;
+    //             case 0x02:
+    //             CURRENT_STATE.REGS[RD(current)] = CURRENT_STATE.REGS[RT(current)] >> SHAMT(current);
+    //             break;
+    //             case 0x23:
+    //             CURRENT_STATE.REGS[RD(current)] = CURRENT_STATE.REGS[RS(current)] - CURRENT_STATE.REGS[RT(current)];
+    //             break;
+    //         }
+    //         break;
 
-            //TYPE J
-            case 0x2:		//(0x000010)J
-            jump=((CURRENT_STATE.PC-4)&0xf0000000)+(TARGET(current)<<2);
-            JUMP_INST(jump);
-            break;
-            case 0x3:		//(0x000011)JAL
-            CURRENT_STATE.REGS[31] = CURRENT_STATE.PC + 4;
-            jump=(CURRENT_STATE.PC&0xf0000000)+(TARGET(current)<<2);
-            JUMP_INST(jump);
-            break;
+    //         //TYPE J
+    //         case 0x2:		//(0x000010)J
+    //         jump=((CURRENT_STATE.PC-4)&0xf0000000)+(TARGET(current)<<2);
+    //         JUMP_INST(jump);
+    //         break;
+    //         case 0x3:		//(0x000011)JAL
+    //         CURRENT_STATE.REGS[31] = CURRENT_STATE.PC + 4;
+    //         jump=(CURRENT_STATE.PC&0xf0000000)+(TARGET(current)<<2);
+    //         JUMP_INST(jump);
+    //         break;
 
-            default:
-            break;
+    //         default:
+    //         break;
 
-        }
+    //     }
 
         return;
 }

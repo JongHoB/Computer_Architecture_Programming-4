@@ -60,7 +60,7 @@ void load_program(char *program_filename) {
             NUM_INST = text_size/4;
             //initial memory allocation of text segment
             INST_INFO = malloc(sizeof(instruction)*NUM_INST);
-            init_inst_info(NUM_INST);
+            init_inst_info();
 
         } else if(flag == 1) {
 
@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
 
     if (debug_set || pipe_dump_set) {
 
-        printf("Simulating for %lu instructions...\n\n", MAX_INSTRUCTION_NUM);
+        printf("Simulating for %llu instructions...\n\n", MAX_INSTRUCTION_NUM);
 
         while (RUN_BIT) {
             cycle();
@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
         if(mem_dump_set) {
             mdump(addr1, addr2);
         }
-        printf("Simulator halted after %lu cycles\n\n", CYCLE_COUNT);
+        printf("Simulator halted after %llu cycles\n\n", CYCLE_COUNT);
 
     } else {
         run();

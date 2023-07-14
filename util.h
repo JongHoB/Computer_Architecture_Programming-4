@@ -40,71 +40,6 @@
 #define MEM_STAGE	3
 #define WB_STAGE	4
 
-
-typedef struct IFID{
-    //uint32_t Instr;
-    instruction * Instr;
-    uint32_t NPC;
-};
-
-typedef struct IDEX{
-    uint32_t NPC;
-    uint32_t REG1;
-    uint32_t REG2;
-    short IMM;
-    unsigned char DEST;
-};
-
-typedef struct EXMEM{
-    uint32_t NPC;
-    uint32_t BR_TARGET;
-    uint32_t ALU_OUT;
-    uint32_t REG2;
-    uint32_t W_VALUE;
-    uint32_t BR_TAKE;
-    unsigned char DEST;
-
-    //Forwarding
-    unsigned char FORWORD_REG;
-    uint32_t FORWORD_VALUE;
-};
-
-typedef struct MEMWB{
-    uint32_t NPC;
-    uint32_t ALU_OUT;//??
-    uint32_t MEM_OUT;
-    uint32_t BR_TAKE;
-    unsigned char DEST;
-
-    //Forwarding
-    unsigned char FORWORD_REG;
-    uint32_t FORWORD_VALUE;
-};
-
-
-typedef struct CPU_State_Struct {
-    uint32_t PC;		/* program counter */
-    uint32_t REGS[MIPS_REGS];	/* register file. */
-
-    uint32_t REGS_LOCK[MIPS_REGS];    /* register lock to support stalls 
-                                        Lock registers when data is not ready*/
-
-    uint32_t PIPE[PIPE_STAGE];	/* PC being executed at each stage*/
-    uint32_t PIPE_STALL[PIPE_STAGE];
-
-    struct IFID IF_ID;
-    struct IDEX ID_EX;
-    struct EXMEM EX_MEM;
-    struct MEMWB MEM_WB;
-    
-    //To choose right PC
-    uint32_t IF_PC;
-    uint32_t JUMP_PC;
-    uint32_t BRANCH_PC;
-
-
-} CPU_State;
-
 /* You should decode your instructions from the
  * ASCII-binary format to this structured format */
 typedef struct inst_s {
@@ -135,6 +70,70 @@ typedef struct inst_s {
     uint32_t value;
 } instruction;
 
+typedef struct{
+    //uint32_t Instr;
+    instruction * Instr;
+    uint32_t NPC;
+}IFID;
+
+typedef struct {
+    uint32_t NPC;
+    uint32_t REG1;
+    uint32_t REG2;
+    short IMM;
+    unsigned char DEST;
+}IDEX;
+
+typedef struct {
+    uint32_t NPC;
+    uint32_t BR_TARGET;
+    uint32_t ALU_OUT;
+    uint32_t REG2;
+    uint32_t W_VALUE;
+    uint32_t BR_TAKE;
+    unsigned char DEST;
+
+    //Forwarding
+    unsigned char FORWORD_REG;
+    uint32_t FORWORD_VALUE;
+}EXMEM;
+
+typedef struct {
+    uint32_t NPC;
+    uint32_t ALU_OUT;//??
+    uint32_t MEM_OUT;
+    uint32_t BR_TAKE;
+    unsigned char DEST;
+
+    //Forwarding
+    unsigned char FORWORD_REG;
+    uint32_t FORWORD_VALUE;
+}MEMWB;
+
+
+typedef struct CPU_State_Struct {
+    uint32_t PC;		/* program counter */
+    uint32_t REGS[MIPS_REGS];	/* register file. */
+
+    uint32_t REGS_LOCK[MIPS_REGS];    /* register lock to support stalls 
+                                        Lock registers when data is not ready*/
+
+    uint32_t PIPE[PIPE_STAGE];	/* PC being executed at each stage*/
+    uint32_t PIPE_STALL[PIPE_STAGE];
+
+    IFID IF_ID;
+    IDEX ID_EX;
+    EXMEM EX_MEM;
+    MEMWB MEM_WB;
+    
+    //To choose right PC
+    uint32_t IF_PC;
+    uint32_t JUMP_PC;
+    uint32_t BRANCH_PC;
+
+
+} CPU_State;
+
 /* All simulated memory will be managed by this structure
  * use the mem_write_32() and mem_read_32() functions to
  * access/modify the simulated memory */
@@ -163,10 +162,9 @@ extern int FORWARDING_BIT;
 extern uint64_t MAX_INSTRUCTION_NUM;
 extern uint64_t CYCLE_COUNT;
 
-
 /* Functions */
 char**		str_split(char *a_str, const char a_delim);
-int		fromBinary(char *s);
+int		    fromBinary(const char *s);
 uint32_t	mem_read_32(uint32_t address);
 void		mem_write_32(uint32_t address, uint32_t value);
 void		cycle();
