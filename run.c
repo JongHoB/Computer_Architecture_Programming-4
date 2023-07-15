@@ -84,7 +84,7 @@ void ID(){
 
     CURRENT_STATE.PIPE[ID_STAGE]=CURRENT_STATE.PIPE[IF_STAGE];
 
-    if(!CURRENT_STATE.PIPE[EX_STAGE]){
+    if(!CURRENT_STATE.PIPE[ID_STAGE]){
         return;
     }
 
@@ -96,22 +96,25 @@ void ID(){
     //It can insert the stall between load
     //IF ID/EX is lw format, and ID/EX.REG2 is equal to IF/ID.REG1 or ID/EX.REG2 is equal to IF/ID.REG2
     //Stall the pipeline
-    if(OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==0x23&&((RT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))))||(RT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])))){
+    if(CURRENT_STATE.PIPE[EX_STAGE]){
+        if(OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==0x23&&((RT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))))||(RT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])))){
 
-        //IF ID stage is stalled, IF stage must also be stalled
-        //PC register and IF/ID register must be preserved
-        CURRENT_STATE.PIPE_STALL[ID_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
-        CURRENT_STATE.PIPE_STALL[IF_STAGE]=CURRENT_STATE.IF_ID.NPC;
-        CURRENT_STATE.PIPELINE_REGS_LOCK[0]=1;
+            //IF ID stage is stalled, IF stage must also be stalled
+            //PC register and IF/ID register must be preserved
+            CURRENT_STATE.PIPE_STALL[ID_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
+            CURRENT_STATE.PIPE_STALL[IF_STAGE]=CURRENT_STATE.IF_ID.NPC;
+            CURRENT_STATE.PIPELINE_REGS_LOCK[0]=1;
 
-        //AFTER ID stage, each stage must excute NOP instruction
-        CURRENT_STATE.PIPE_STALL[EX_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
-        CURRENT_STATE.PIPE_STALL[MEM_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
-        CURRENT_STATE.PIPE_STALL[WB_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
+            //AFTER ID stage, each stage must excute NOP instruction
+            CURRENT_STATE.PIPE_STALL[EX_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
+            CURRENT_STATE.PIPE_STALL[MEM_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
+            CURRENT_STATE.PIPE_STALL[WB_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
 
-        CURRENT_STATE.IF_PC=CURRENT_STATE.PIPE[ID_STAGE];// why border...?
-        return;
+            CURRENT_STATE.IF_PC=CURRENT_STATE.PIPE[ID_STAGE];// why border...?
+            return;
+        }
     }
+    
 
     CURRENT_STATE.ID_EX.NPC=CURRENT_STATE.IF_ID.NPC;
 
@@ -305,10 +308,12 @@ void MEM(){
     //beq instruction and ALU_ZERO then branch address
 
     //lw and sw sequence instruction DATA HAZARD
-    if(OPCODE(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE]))==0x23&&OPCODE(get_inst_info(CURRENT_STATE.PIPE[MEM_STAGE]))==0x2b){
-        mem_write_32(CURRENT_STATE.EX_MEM.ALU_OUT,CURRENT_STATE.MEM_WB.MEM_OUT);
+    if(CURRENT_STATE.PIPE[WB_STAGE]){
+        if(OPCODE(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE]))==0x23&&OPCODE(get_inst_info(CURRENT_STATE.PIPE[MEM_STAGE]))==0x2b){
+            mem_write_32(CURRENT_STATE.EX_MEM.ALU_OUT,CURRENT_STATE.MEM_WB.MEM_OUT);
+        }
     }
-
+    
 return;
 }
 
