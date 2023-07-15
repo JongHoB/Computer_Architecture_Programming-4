@@ -125,7 +125,7 @@ typedef struct CPU_State_Struct {
     EXMEM EX_MEM;//2
     MEMWB MEM_WB;//3
 
-    bool PIPELINE_REGS_LOCK[4]; //To lock pipeline registers
+    int PIPELINE_REGS_LOCK[4]; //To lock pipeline registers
     
     //To choose right PC
     uint32_t IF_PC;
