@@ -120,6 +120,7 @@ void initialize(char *program_filename) {
     CURRENT_STATE.EX_MEM.ALU_OUT = 0;
     CURRENT_STATE.EX_MEM.BR_TARGET = 0;
     CURRENT_STATE.MEM_WB.ALU_OUT = 0;
+    
 
     RUN_BIT = TRUE;
     FETCH_BIT = TRUE;

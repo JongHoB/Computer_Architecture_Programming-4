@@ -97,7 +97,7 @@ void ID(){
     //IF ID/EX is lw format, and ID/EX.REG2 is equal to IF/ID.REG1 or ID/EX.REG2 is equal to IF/ID.REG2
     //Stall the pipeline
     if(CURRENT_STATE.PIPE[EX_STAGE]){
-        if(OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==0x23&&((RT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))))||(RT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])))){
+        if(OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==0x23&&((RT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])))||(RT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))))){
 
             //IF ID stage is stalled, IF stage must also be stalled
             //PC register and IF/ID register must be preserved
@@ -483,7 +483,7 @@ void WB(){
 
             //TYPE R
             case 0x0:		//(0x000000)ADDU, AND, NOR, OR, SLTU, SLL, SRL, SUBU 
-            switch(FUNC(current))
+            switch(FUNC(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE])))
             {
                 case 0x21: 
                 case 0x24:
