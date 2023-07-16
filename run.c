@@ -110,13 +110,38 @@ void ID(){
             CURRENT_STATE.PIPE_STALL[MEM_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
             CURRENT_STATE.PIPE_STALL[WB_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
 
-            CURRENT_STATE.IF_PC=CURRENT_STATE.PIPE[ID_STAGE];// why border...?
+            //CURRENT_STATE.IF_PC=CURRENT_STATE.PIPE[ID_STAGE];// why border...?
             return;
         }
     }
-    
 
-    CURRENT_STATE.ID_EX.NPC=CURRENT_STATE.IF_ID.NPC;
+    //For unconditional jump(J,JAL,JR)
+    //Always add a one-cycle stall to the pipeline
+    //Flush the pipeline of IF stage
+    //JAL instuction, save the PC+8 value into R31 register
+    //After every JAL instruction, NOP instruction(add $0,$0,$0) is inserted
+    uint32_t jump;
+    if(OPCODE(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))==0x2||OPCODE(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))==0x3||(OPCODE(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))==0x0&&FUNC(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))==0x08)){
+        CURRENT_STATE.PIPE_STALL[IF_STAGE]=CURRENT_STATE.PC;
+        CURRENT_STATE.PIPE[IF_STAGE]=0;
+        switch(OPCODE(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))){
+            //TYPE J
+            case 0x2:		//(0x000010)J
+            jump=((CURRENT_STATE.PIPE[ID_STAGE])&0xf0000000)+(TARGET(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))<<2);
+            JUMP_INST(jump);
+            break;
+            case 0x3:		//(0x000011)JAL
+            // CURRENT_STATE.REGS[31] = CURRENT_STATE.PC + 4; --> ㅇㅒ가  문제야!!!!!!!!!!!
+            CURRENT_STATE.ID_EX.DEST=31;
+            jump=((CURRENT_STATE.PIPE[ID_STAGE]+4)&0xf0000000)+(TARGET(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))<<2);
+            JUMP_INST(jump);
+            break;
+            case 0x0:        //(0x000000)JR
+            CURRENT_STATE.PC=CURRENT_STATE.REGS[RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))];
+            break;
+        }
+        return;
+    }
 
     //LOAD instruction ID stage-1
     CURRENT_STATE.ID_EX.NPC=CURRENT_STATE.IF_ID.NPC;
@@ -125,7 +150,8 @@ void ID(){
     //STORE instruction
     CURRENT_STATE.ID_EX.REG1=CURRENT_STATE.REGS[RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))];
     CURRENT_STATE.ID_EX.REG2=CURRENT_STATE.REGS[RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))];;
-    CURRENT_STATE.ID_EX.IMM=SIGN_EX(IMM(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))); 
+    CURRENT_STATE.ID_EX.IMM=IMM(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])); 
+    CURRENT_STATE.ID_EX.SIGN_EX_IMM=SIGN_EX(CURRENT_STATE.ID_EX.IMM);
 
     //Modified pipeline datapath for LOAD instruction
     //lw,sw,beq instruction Write Register comes from RT field
@@ -201,6 +227,7 @@ void ID(){
             break;
         }
     }
+
 return;
 }
 
@@ -236,10 +263,7 @@ void EX(){
 
     CURRENT_STATE.EX_MEM.NPC=CURRENT_STATE.ID_EX.NPC;
 
-    //LOAD instruction EX stage
-    //READ REG1 and SIGN_EX_IMM
-    //ALU operation
-    CURRENT_STATE.EX_MEM.ALU_OUT=CURRENT_STATE.ID_EX.REG1+CURRENT_STATE.ID_EX.IMM;
+
     //In the book, it assumes that REG2 will be stored in EX/MEM only in STORE instruction.
     //But in the code, i will store REG2 in EX/MEM in LOAD and STORE inst universally.
     CURRENT_STATE.EX_MEM.REG2=CURRENT_STATE.ID_EX.REG2;
@@ -250,7 +274,88 @@ void EX(){
 
     //lw,sw instruction uses SIGN_EX_IMM as ALU operand
 
+
+    //ALU operation
     //R-Type and beq instruction uses Read Data2(REG2) as ALU operand
+    switch(OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))){
+
+        //Type I
+        case 0x9:		//(0x001001)ADDIU
+        CURRENT_STATE.EX_MEM.ALU_OUT=CURRENT_STATE.ID_EX.REG1+CURRENT_STATE.ID_EX.SIGN_EX_IMM; 
+        break;
+        case 0xc:		//(0x001100)ANDI
+        CURRENT_STATE.EX_MEM.ALU_OUT=CURRENT_STATE.ID_EX.REG1&CURRENT_STATE.ID_EX.IMM;
+        break;
+        case 0xf:		//(0x001111)LUI	
+        CURRENT_STATE.EX_MEM.ALU_OUT=CURRENT_STATE.ID_EX.IMM<<16; 
+        break;
+        case 0xd:		//(0x001101)ORI
+        CURRENT_STATE.EX_MEM.ALU_OUT=CURRENT_STATE.ID_EX.REG1|CURRENT_STATE.ID_EX.IMM;
+        break;
+        case 0xb:		//(0x001011)SLTIU
+        CURRENT_STATE.EX_MEM.ALU_OUT=(CURRENT_STATE.ID_EX.REG1 < CURRENT_STATE.ID_EX.SIGN_EX_IMM) ? 1 : 0;
+        break;
+
+        //LOAD instruction EX stage
+        //READ REG1 and SIGN_EX_IMM
+        //ALU operationss
+        case 0x23:		//(0x100011)LW
+        case 0x2b:		//(0x101011)SW
+        CURRENT_STATE.EX_MEM.ALU_OUT=CURRENT_STATE.ID_EX.REG1+CURRENT_STATE.ID_EX.SIGN_EX_IMM; 
+        break;
+
+        case 0x4:		//(0x000100)BEQ
+        if(CURRENT_STATE.ID_EX.REG1 == CURRENT_STATE.ID_EX.REG2){
+            CURRENT_STATE.EX_MEM.BR_TAKE=TARGET(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]+4+IDISP(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))));
+        };
+        break;
+        case 0x5:		//(0x000101)BNE
+        if(CURRENT_STATE.ID_EX.REG1 != CURRENT_STATE.ID_EX.REG2){
+            CURRENT_STATE.EX_MEM.BR_TAKE=TARGET(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]+4+IDISP(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))));
+        };
+        break;
+
+        //TYPE R
+        case 0x0:		//(0x000000)ADDU, AND, NOR, OR, SLTU, SLL, SRL, SUBU  if JR
+            switch(FUNC(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE])))
+            {
+                case 0x21:
+                CURRENT_STATE.EX_MEM.ALU_OUT = CURRENT_STATE.ID_EX.REG1 + CURRENT_STATE.ID_EX.REG2;
+                break;
+                case 0x24:
+                CURRENT_STATE.EX_MEM.ALU_OUT = CURRENT_STATE.ID_EX.REG1 & CURRENT_STATE.ID_EX.REG2;
+                break;
+                case 0x27:
+                CURRENT_STATE.EX_MEM.ALU_OUT = ~(CURRENT_STATE.ID_EX.REG1 | CURRENT_STATE.ID_EX.REG2);
+                break;
+                case 0x25:
+                CURRENT_STATE.EX_MEM.ALU_OUT = CURRENT_STATE.ID_EX.REG1 | CURRENT_STATE.ID_EX.REG2;
+                break;
+                case 0x2B:
+                CURRENT_STATE.EX_MEM.ALU_OUT = (CURRENT_STATE.ID_EX.REG1 < CURRENT_STATE.ID_EX.REG2) ? 1 : 0;
+                break;
+                case 0x00:
+                CURRENT_STATE.EX_MEM.ALU_OUT = CURRENT_STATE.ID_EX.REG2 << SHAMT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]));
+                break;
+                case 0x02:
+                CURRENT_STATE.EX_MEM.ALU_OUT = CURRENT_STATE.ID_EX.REG2 >> SHAMT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]));
+                break;
+                case 0x23:
+                CURRENT_STATE.EX_MEM.ALU_OUT = CURRENT_STATE.ID_EX.REG1 - CURRENT_STATE.ID_EX.REG2;
+                break;
+            }
+            break;
+
+
+        //TYPE J
+        case 0x3:		//(0x000011)JAL
+        CURRENT_STATE.EX_MEM.ALU_OUT = CURRENT_STATE.PIPE[EX_STAGE] + 8;
+        break; 
+
+        default:
+        break;
+
+    }
 
 return;
 }
@@ -273,34 +378,13 @@ void MEM(){
     //MEM stage NOP instruction because of ID stage stall
     if(CURRENT_STATE.PIPE_STALL[MEM_STAGE]==CURRENT_STATE.PIPE[MEM_STAGE]){
         CURRENT_STATE.PIPE_STALL[MEM_STAGE]=0;
-        //CURRENT_STATE.PIPE[MEM_STAGE]=NULL;
         return;
-    }
-
-    //conditional branches(BEQ,BNE)
-    //branch taken
-    if((OPCODE(get_inst_info(CURRENT_STATE.PIPE[MEM_STAGE]))==0x4||OPCODE(get_inst_info(CURRENT_STATE.PIPE[MEM_STAGE]))==0x5)&&CURRENT_STATE.EX_MEM.BR_TAKE){
-        
-        //Flush the pipeline in IF,ID,EX stage
-        CURRENT_STATE.PIPE_STALL[IF_STAGE]=CURRENT_STATE.PC;
-        CURRENT_STATE.PIPE_STALL[ID_STAGE]=CURRENT_STATE.PIPE[IF_STAGE];
-        CURRENT_STATE.PIPE_STALL[EX_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
-        CURRENT_STATE.PIPE[IF_STAGE]=0;
-        CURRENT_STATE.PIPE[ID_STAGE]=0;
-        CURRENT_STATE.PIPE[EX_STAGE]=0;
-        CURRENT_STATE.PC=CURRENT_STATE.EX_MEM.BR_TAKE;
     }
 
     CURRENT_STATE.MEM_WB.NPC=CURRENT_STATE.EX_MEM.NPC;
 
     //FOR MEM HAZARD
     CURRENT_STATE.MEM_WB.ALU_OUT=CURRENT_STATE.EX_MEM.ALU_OUT;
-
-    //LOAD instruction MEM stage
-    CURRENT_STATE.MEM_WB.MEM_OUT=mem_read_32(CURRENT_STATE.EX_MEM.ALU_OUT);
-
-    //STORE instruction MEM stage
-    mem_write_32(CURRENT_STATE.EX_MEM.ALU_OUT,CURRENT_STATE.EX_MEM.REG2);
 
     //Modified pipeline datapath for LOAD instruction
     CURRENT_STATE.MEM_WB.DEST=CURRENT_STATE.EX_MEM.DEST;
@@ -313,7 +397,42 @@ void MEM(){
             mem_write_32(CURRENT_STATE.EX_MEM.ALU_OUT,CURRENT_STATE.MEM_WB.MEM_OUT);
         }
     }
-    
+
+
+   switch(OPCODE(get_inst_info(CURRENT_STATE.PIPE[MEM_STAGE])))
+        {
+            //Type I
+            case 0x23:		//(0x100011)LW
+            //LOAD instruction MEM stage
+            CURRENT_STATE.MEM_WB.MEM_OUT=mem_read_32(CURRENT_STATE.EX_MEM.ALU_OUT);
+            break;
+            case 0x2b:		//(0x101011)SW
+            //STORE instruction MEM stage
+            mem_write_32(CURRENT_STATE.EX_MEM.ALU_OUT,CURRENT_STATE.EX_MEM.REG2);
+            break;
+            case 0x4:		//(0x000100)BEQ
+            case 0x5:		//(0x000101)BNE
+            //conditional branches(BEQ,BNE)
+            //branch taken
+            if(CURRENT_STATE.EX_MEM.BR_TAKE){
+        
+                //Flush the pipeline in IF,ID,EX stage
+                CURRENT_STATE.PIPE_STALL[IF_STAGE]=CURRENT_STATE.PC;
+                CURRENT_STATE.PIPE_STALL[ID_STAGE]=CURRENT_STATE.PIPE[IF_STAGE];
+                CURRENT_STATE.PIPE_STALL[EX_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
+                CURRENT_STATE.PIPE[IF_STAGE]=0;
+                CURRENT_STATE.PIPE[ID_STAGE]=0;
+                CURRENT_STATE.PIPE[EX_STAGE]=0;
+                CURRENT_STATE.PC=CURRENT_STATE.EX_MEM.BR_TAKE;
+                CURRENT_STATE.EX_MEM.BR_TAKE=0;
+            }
+            break;
+
+            default:
+            break;
+
+        }
+ 
 return;
 }
 
@@ -344,13 +463,50 @@ void WB(){
     // CURRENT_STATE.ID_EX.REG2=CURRENT_STATE.MEM_WB.MEM_OUT;
 
     //Modified pipeline datapath for LOAD instruction
-    CURRENT_STATE.REGS[CURRENT_STATE.MEM_WB.DEST]=CURRENT_STATE.MEM_WB.MEM_OUT;
+    //CURRENT_STATE.REGS[CURRENT_STATE.MEM_WB.DEST]=CURRENT_STATE.MEM_WB.MEM_OUT;
 
     //STORE instruction nothing to do
 
     //R-Type writes Register but not MemoryToRegister
 
-    
+   switch(OPCODE(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE])))
+        {
+            //Type I
+            case 0x9:		//(0x001001)ADDIU
+            case 0xc:		//(0x001100)ANDI
+            case 0xf:		//(0x001111)LUI	
+            case 0xd:		//(0x001101)ORI
+            case 0xb:		//(0x001011)SLTIU 
+            case 0x23:		//(0x100011)LW
+            CURRENT_STATE.REGS[CURRENT_STATE.MEM_WB.DEST]=CURRENT_STATE.MEM_WB.MEM_OUT;
+            break;
+
+            //TYPE R
+            case 0x0:		//(0x000000)ADDU, AND, NOR, OR, SLTU, SLL, SRL, SUBU 
+            switch(FUNC(current))
+            {
+                case 0x21: 
+                case 0x24:
+                case 0x27:
+                case 0x25:
+                case 0x2B:
+                case 0x00:
+                case 0x02:
+                case 0x23:
+                CURRENT_STATE.REGS[CURRENT_STATE.MEM_WB.DEST]=CURRENT_STATE.MEM_WB.MEM_OUT;            
+            }
+            break;
+
+            //TYPE J
+            case 0x3:		//(0x000011)JAL
+            CURRENT_STATE.REGS[CURRENT_STATE.MEM_WB.DEST] = CURRENT_STATE.MEM_WB.ALU_OUT;
+            break;
+
+            default:
+            break;
+
+        }
+ 
 
 
 return;
@@ -370,17 +526,6 @@ void process_instruction()
     EX();
     ID();
     IF();
-
-	// /** Implement this function */
-    // if ((CURRENT_STATE.PC - MEM_TEXT_START) / 4== NUM_INST)
-    // {
-    //     RUN_BIT = FALSE;
-    //     return;
-    // }
-
-    // instruction *current=get_inst_info(CURRENT_STATE.PC);
-    // CURRENT_STATE.PC+=4;
-
     // uint32_t jump;
     // switch(OPCODE(current))
     //     {

@@ -80,6 +80,7 @@ typedef struct {
     uint32_t REG1;
     uint32_t REG2;
     short IMM;
+    short SIGN_EX_IMM;
     unsigned char DEST;
 }IDEX;
 
