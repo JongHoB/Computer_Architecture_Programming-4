@@ -49,7 +49,7 @@ void IF(){
     //ID stage stalled
     //IF stage will read same instruction in ID stage(DELAY)
     if(CURRENT_STATE.PIPE_STALL[IF_STAGE]==CURRENT_STATE.PC){
-        CURRENT_STATE.PC = CURRENT_STATE.PIPE_STALL[ID_STAGE];
+        CURRENT_STATE.PC = CURRENT_STATE.PIPE_STALL[IF_STAGE];
         CURRENT_STATE.PIPE_STALL[ID_STAGE]=1;
         CURRENT_STATE.PIPE_STALL[IF_STAGE]=1;
     }
@@ -59,7 +59,7 @@ void IF(){
         return;
     }
 
-    if ((CURRENT_STATE.PC - MEM_TEXT_START) / 4>= MAX_INSTRUCTION_NUM)
+    if ((CURRENT_STATE.PC - MEM_TEXT_START) / 4>= NUM_INST)
     {
         CURRENT_STATE.PIPE[IF_STAGE]=0;
         FETCH_BIT=FALSE;
