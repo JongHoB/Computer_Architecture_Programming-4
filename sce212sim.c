@@ -193,6 +193,9 @@ int main(int argc, char *argv[]) {
 
         while (RUN_BIT) {
             cycle();
+            if(CYCLE_COUNT==19){
+                RUN_BIT=FALSE;
+            }
 
             if (pipe_dump_set) {
                 pdump();

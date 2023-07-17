@@ -40,13 +40,18 @@ void IF(){
         return;
     }
 
+    //IF instruction DELAY after ID stage stall
+    if(CURRENT_STATE.PIPE_STALL[IF_STAGE]==1){
+        CURRENT_STATE.PIPE_STALL[IF_STAGE]=0;
+        return;
+    }
+
     //ID stage stalled
-    //IF stage will read same instruction in ID stage
+    //IF stage will read same instruction in ID stage(DELAY)
     if(CURRENT_STATE.PIPE_STALL[IF_STAGE]==CURRENT_STATE.PC){
         CURRENT_STATE.PC = CURRENT_STATE.PIPE_STALL[ID_STAGE];
-        CURRENT_STATE.PIPE_STALL[IF_STAGE]=0;
-
-        CURRENT_STATE.PIPELINE_REGS_LOCK[0]=0;
+        CURRENT_STATE.PIPE_STALL[ID_STAGE]=1;
+        CURRENT_STATE.PIPE_STALL[IF_STAGE]=1;
     }
 
     if(FETCH_BIT==FALSE&&CURRENT_STATE.PIPE[MEM_STAGE]==0){
@@ -54,7 +59,7 @@ void IF(){
         return;
     }
 
-    if ((CURRENT_STATE.PC - MEM_TEXT_START) / 4>= NUM_INST)
+    if ((CURRENT_STATE.PC - MEM_TEXT_START) / 4>= MAX_INSTRUCTION_NUM)
     {
         CURRENT_STATE.PIPE[IF_STAGE]=0;
         FETCH_BIT=FALSE;
@@ -70,11 +75,15 @@ void IF(){
 
     //LOAD instruction IF stage-2
     CURRENT_STATE.PC+=4;
+
+    //Unconditional jump(J,JAL,JR)
+    if(CURRENT_STATE.JUMP_PC){
+        CURRENT_STATE.PC=CURRENT_STATE.JUMP_PC;
+    }
+
     CURRENT_STATE.IF_ID.NPC=CURRENT_STATE.PC;
 
     
-    
-
 return;
 }
 
@@ -94,6 +103,19 @@ void ID(){
         return;
     }
 
+    //Unconditional jump(J,JAL,JR)
+    if(CURRENT_STATE.JUMP_PC){
+        CURRENT_STATE.JUMP_PC=0;
+        CURRENT_STATE.PIPE[ID_STAGE]=0;
+        return;
+    }
+
+    //IF->ID->EX stage DELAY 
+    if(CURRENT_STATE.PIPE_STALL[ID_STAGE]==1){
+        CURRENT_STATE.PIPE_STALL[ID_STAGE]=0;
+        return;
+    }
+
     CURRENT_STATE.PIPE[ID_STAGE]=CURRENT_STATE.PIPE[IF_STAGE];
 
     if(!CURRENT_STATE.PIPE[ID_STAGE]){
@@ -107,7 +129,7 @@ void ID(){
     //HAZARD DETECTION UNIT
     //It can insert the stall between load
     //IF ID/EX is lw format, and ID/EX.REG2 is equal to IF/ID.REG1 or ID/EX.REG2 is equal to IF/ID.REG2
-    //Stall the pipeline
+    //Stall the pipeline(DELAY ID AND IF stage instruction)
     if(CURRENT_STATE.PIPE[EX_STAGE]){
         if(OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==0x23&&(((int)RT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==(int)RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])))||((int)RT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==(int)RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))))){
 
@@ -115,7 +137,6 @@ void ID(){
             //PC register and IF/ID register must be preserved
             CURRENT_STATE.PIPE_STALL[ID_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
             CURRENT_STATE.PIPE_STALL[IF_STAGE]=CURRENT_STATE.IF_ID.NPC;
-            CURRENT_STATE.PIPELINE_REGS_LOCK[0]=1;
 
             //AFTER ID stage, each stage must excute NOP instruction
             CURRENT_STATE.PIPE_STALL[EX_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
@@ -134,24 +155,24 @@ void ID(){
     //After every JAL instruction, NOP instruction(add $0,$0,$0) is inserted
     uint32_t jump;
     if(OPCODE(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))==0x2||OPCODE(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))==0x3||(OPCODE(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))==0x0&&FUNC(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))==0x08)){
-        CURRENT_STATE.PIPE_STALL[IF_STAGE]=CURRENT_STATE.PC;
-        CURRENT_STATE.PIPE[IF_STAGE]=0;
+        
         switch(OPCODE(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))){
             //TYPE J
             case 0x2:		//(0x000010)J
             jump=((CURRENT_STATE.PIPE[ID_STAGE])&0xf0000000)+(TARGET(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))<<2);
-            JUMP_INST(jump);
+            CURRENT_STATE.JUMP_PC=jump;
             break;
             case 0x3:		//(0x000011)JAL
             // CURRENT_STATE.REGS[31] = CURRENT_STATE.PC + 4; --> ㅇㅒ가  문제야!!!!!!!!!!!
             CURRENT_STATE.ID_EX.DEST=31;
             jump=((CURRENT_STATE.PIPE[ID_STAGE]+4)&0xf0000000)+(TARGET(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))<<2);
-            JUMP_INST(jump);
+            CURRENT_STATE.JUMP_PC=jump;
             break;
             case 0x0:        //(0x000000)JR
-            CURRENT_STATE.PC=CURRENT_STATE.REGS[(int)RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))];
+            CURRENT_STATE.JUMP_PC=CURRENT_STATE.REGS[(int)RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))];
             break;
         }
+        
         return;
     }
 
@@ -183,9 +204,10 @@ void ID(){
     if(CURRENT_STATE.PIPE[EX_STAGE]){
         switch(OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))){
             case 0x9://addiu
-
+            case 0xc://andi
             case 0xf://lui
             case 0xd://ori
+            case 0xb://sltiu
             case 0x23://lw
             case 0x0://R-Type
 
@@ -216,8 +238,10 @@ void ID(){
             case 0x23://lw
             inst=1;
             case 0x9://addiu
+            case 0xc://andi
             case 0xf://lui
             case 0xd://ori
+            case 0xb://sltiu
             case 0x0://R-Type
 
             //FORWARDING_BIT=FALSE; --> WHY BORDER...?
@@ -277,6 +301,7 @@ void EX(){
 
     //EX stage NOP instruction because of ID stage stall
     if(CURRENT_STATE.PIPE_STALL[EX_STAGE]==CURRENT_STATE.PIPE[EX_STAGE]){
+        CURRENT_STATE.PIPE[EX_STAGE]=0;
         CURRENT_STATE.PIPE_STALL[EX_STAGE]=0;
         //CURRENT_STATE.PIPE[EX_STAGE]=NULL;
         return;
@@ -539,7 +564,7 @@ void WB(){
             break;
 
         }
-        printf("opcode: %llu, func: %llu REGS9:0x%x\n", OPCODE(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE])), FUNC(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE])),CURRENT_STATE.REGS[9]);
+        printf("opcode: %llu, func: %llu REGS7:0x%x\n", OPCODE(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE])), FUNC(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE])),CURRENT_STATE.REGS[7]);
  
 
 
