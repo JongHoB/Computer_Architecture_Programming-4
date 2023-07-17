@@ -81,7 +81,7 @@ typedef struct {
     uint32_t REG2;
     short IMM;
     short SIGN_EX_IMM;
-    unsigned char DEST;
+    int DEST;
 }IDEX;
 
 typedef struct {
@@ -91,7 +91,7 @@ typedef struct {
     uint32_t REG2;
     uint32_t W_VALUE;
     uint32_t BR_TAKE;
-    unsigned char DEST;
+    int DEST;
 
     //Forwarding
     unsigned char FORWORD_REG;
@@ -103,7 +103,7 @@ typedef struct {
     uint32_t ALU_OUT;//??
     uint32_t MEM_OUT;
     uint32_t BR_TAKE;
-    unsigned char DEST;
+    int DEST;
 
     //Forwarding
     unsigned char FORWORD_REG;
