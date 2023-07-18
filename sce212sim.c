@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
 
         while (RUN_BIT) {
             cycle();
-            if(CYCLE_COUNT==126){
+            if(CYCLE_COUNT==119){
                 RUN_BIT=FALSE;
             }
 

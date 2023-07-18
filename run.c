@@ -83,7 +83,7 @@ void IF(){
 
     CURRENT_STATE.IF_ID.NPC=CURRENT_STATE.PC;
 
-printf("OPCODE in fetch_Bit %d, fetch: 0x%x, FUNC: 0x%x\n",FETCH_BIT, OPCODE(get_inst_info(CURRENT_STATE.PIPE[IF_STAGE])),FUNC(get_inst_info(CURRENT_STATE.PIPE[IF_STAGE])));    
+// printf("OPCODE in fetch_Bit %d, fetch: 0x%x, FUNC: 0x%x\n",FETCH_BIT, OPCODE(get_inst_info(CURRENT_STATE.PIPE[IF_STAGE])),FUNC(get_inst_info(CURRENT_STATE.PIPE[IF_STAGE])));    
 return;
 }
 
@@ -200,7 +200,7 @@ void ID(){
    
     CURRENT_STATE.ID_EX.IMM=IMM(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])); 
     CURRENT_STATE.ID_EX.SIGN_EX_IMM=SIGN_EX(CURRENT_STATE.ID_EX.IMM);
-    printf("ID stage / OPCODE : 0x%x, FUNC 0x%x, RS: %llu , RT: %llu ,REG1: %llu , REG2 : %llu , IMM: %llu\n",OPCODE(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])),FUNC(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])), RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])),RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])),CURRENT_STATE.ID_EX.REG1,CURRENT_STATE.ID_EX.REG2,CURRENT_STATE.ID_EX.IMM); 
+    
     //Modified pipeline datapath for LOAD instruction
     //lw,sw,beq instruction Write Register comes from RT field
     CURRENT_STATE.ID_EX.DEST=(int)RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]));
@@ -211,6 +211,7 @@ void ID(){
     {
         CURRENT_STATE.ID_EX.DEST=(int)RD(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]));
     }
+    // printf("ID stage / OPCODE : 0x%x, FUNC 0x%x, DEST(RD):%llu, RS: %llu , RT: %llu ,REG1: %llu , REG2 : %llu , IMM: %llu\n",OPCODE(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])),FUNC(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])),CURRENT_STATE.ID_EX.DEST, RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])),RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])),CURRENT_STATE.ID_EX.REG1,CURRENT_STATE.ID_EX.REG2,CURRENT_STATE.ID_EX.IMM); 
     //EX HAZARD
     //IF EX/MEM is lw or R format, and EX/MEM.DEST is equal to ID/EX.REG1 or ID/EX.REG2
     //NEED TO FORWARD EX/MEM.ALU_OUT to ALU operand
@@ -245,6 +246,9 @@ void ID(){
     //MEM HAZARD
     //IF MEM/WB is lw or R format, and MEM/WB.DEST is equal to ID/EX.REG1 or ID/EX.REG2
     //NEED TO FORWARD MEM/WB.MEM_OUT to ALU operand
+
+    //FOR TRUE OR FALSE IF EX/MEM.REGWRITE
+    int OP_EX=0;
     if(CURRENT_STATE.PIPE[MEM_STAGE]){
         int inst=0;
         switch(OPCODE(get_inst_info(CURRENT_STATE.PIPE[MEM_STAGE]))){
@@ -259,12 +263,15 @@ void ID(){
             case 0x0://R-Type
 
             //FORWARDING_BIT=FALSE; --> WHY BORDER...?
-
-            if(CURRENT_STATE.PIPE[EX_STAGE]==0){
-                return;
+            
+           //FOR TRUE OR FALSE IF EX/MEM.REGWRITE 
+            if(CURRENT_STATE.PIPE[EX_STAGE]!=0){
+                if(OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==(0x23||0x0)){
+                    OP_EX=1;
+                }
             }
 
-            if(CURRENT_STATE.MEM_WB.DEST!=0&&CURRENT_STATE.MEM_WB.DEST==(int)RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))&&!(OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==(0x23||0x0)&&CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST!=(int)RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))))
+            if(CURRENT_STATE.MEM_WB.DEST!=0&&CURRENT_STATE.MEM_WB.DEST==(int)RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))&&!(OP_EX&&CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST!=(int)RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))))
             {
                 /***************************************************************/
                 /*  if (MEM/WB.RegWrite and (MEM/WB.RegisterRd ≠  0)           */ 
@@ -275,7 +282,7 @@ void ID(){
                 CURRENT_STATE.ID_EX.REG1=(inst==0)?CURRENT_STATE.MEM_WB.ALU_OUT:CURRENT_STATE.MEM_WB.MEM_OUT;
                
             }
-            if(CURRENT_STATE.MEM_WB.DEST!=0&&CURRENT_STATE.MEM_WB.DEST==(int)RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))&&!(OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==(0x23||0x0)&&CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST!=(int)RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))))
+            if(CURRENT_STATE.MEM_WB.DEST!=0&&CURRENT_STATE.MEM_WB.DEST==(int)RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))&&!(OP_EX&&CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST!=(int)RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))))
             {
                 /***************************************************************/
                 /*  if (MEM/WB.RegWrite and (MEM/WB.RegisterRd ≠  0)           */
@@ -352,12 +359,12 @@ void EX(){
         break;
         case 0xf:		//(0x001111)LUI	
         CURRENT_STATE.EX_MEM.ALU_OUT=CURRENT_STATE.ID_EX.IMM<<16; 
-        printf("LUI:0x%x\n",CURRENT_STATE.EX_MEM.ALU_OUT);
+        // printf("LUI:0x%x\n",CURRENT_STATE.EX_MEM.ALU_OUT);
         break;
         case 0xd:		//(0x001101)ORI
-        printf("CURRENT REG1: 0x%x, IMM: 0x%x\n",CURRENT_STATE.ID_EX.REG1,CURRENT_STATE.ID_EX.IMM);
+        // printf("CURRENT REG1: 0x%x, IMM: 0x%x\n",CURRENT_STATE.ID_EX.REG1,CURRENT_STATE.ID_EX.IMM);
         CURRENT_STATE.EX_MEM.ALU_OUT=CURRENT_STATE.ID_EX.REG1|CURRENT_STATE.ID_EX.IMM;
-        printf("ORI:0x%x\n",CURRENT_STATE.EX_MEM.ALU_OUT);
+        // printf("ORI:0x%x\n",CURRENT_STATE.EX_MEM.ALU_OUT);
         break;
         case 0xb:		//(0x001011)SLTIU
         CURRENT_STATE.EX_MEM.ALU_OUT=(CURRENT_STATE.ID_EX.REG1 < CURRENT_STATE.ID_EX.SIGN_EX_IMM) ? 1 : 0;
@@ -404,7 +411,7 @@ void EX(){
                 break;
                 case 0x00:
                 CURRENT_STATE.EX_MEM.ALU_OUT = CURRENT_STATE.ID_EX.REG2 << SHAMT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]));
-                printf("DEST:%d\n",CURRENT_STATE.EX_MEM.DEST);
+                // printf("EX stage SLL EX_MEM.ALU_OUT: 0x%x ,DEST:%d\n",CURRENT_STATE.EX_MEM.ALU_OUT,CURRENT_STATE.EX_MEM.DEST);
                 break;
                 case 0x02:
                 CURRENT_STATE.EX_MEM.ALU_OUT = CURRENT_STATE.ID_EX.REG2 >> SHAMT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]));
@@ -425,7 +432,7 @@ void EX(){
         break;
 
     }
-    printf("EX stage OPCODE 0x%x, FUNC 0x%x EX_MEM.ALU_OUT : 0x%x\n",OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE])),FUNC(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE])), CURRENT_STATE.EX_MEM.ALU_OUT);
+    // printf("EX stage OPCODE 0x%x, FUNC 0x%x DEST:%d , REG1: 0x%x, REG2 0x%x, EX_MEM.ALU_OUT : 0x%x\n",OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE])),FUNC(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE])),CURRENT_STATE.EX_MEM.DEST,CURRENT_STATE.ID_EX.REG1,CURRENT_STATE.ID_EX.REG2, CURRENT_STATE.EX_MEM.ALU_OUT);
     // printf("BR_TAKE: 0x%x\n",CURRENT_STATE.EX_MEM.BR_TAKE);
 
 return;
@@ -443,6 +450,7 @@ void MEM(){
     CURRENT_STATE.PIPE[MEM_STAGE]=CURRENT_STATE.PIPE[EX_STAGE];
 
     if(!CURRENT_STATE.PIPE[MEM_STAGE]){
+        CURRENT_STATE.PIPE_STALL[MEM_STAGE]=0;
         return;
     }
 
@@ -504,7 +512,7 @@ void MEM(){
             break;
 
         }
-printf("MEM stage OPCODE 0x%x, FUNC 0x%x \n",OPCODE(get_inst_info(CURRENT_STATE.PIPE[MEM_STAGE])),FUNC(get_inst_info(CURRENT_STATE.PIPE[MEM_STAGE]))); 
+// printf("MEM stage OPCODE 0x%x, FUNC 0x%x ALU_OUT:0x%x, MEM_OUT:0x%x\n",OPCODE(get_inst_info(CURRENT_STATE.PIPE[MEM_STAGE])),FUNC(get_inst_info(CURRENT_STATE.PIPE[MEM_STAGE])),CURRENT_STATE.MEM_WB.ALU_OUT,CURRENT_STATE.MEM_WB.MEM_OUT); 
 return;
 }
 
@@ -520,6 +528,7 @@ void WB(){
     CURRENT_STATE.PIPE[WB_STAGE]=CURRENT_STATE.PIPE[MEM_STAGE];
 
     if(!CURRENT_STATE.PIPE[WB_STAGE]){
+        CURRENT_STATE.PIPE_STALL[WB_STAGE]=0;
         return;
     }
 
@@ -582,7 +591,7 @@ void WB(){
             break;
 
         }
-        printf("WB stage/ opcode: 0x%x, func: 0x%x REGS7:0x%x\n", OPCODE(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE])), FUNC(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE])),CURRENT_STATE.REGS[7]);
+        // printf("WB stage/ opcode: 0x%x, func: 0x%x REGS7:0x%x\n", OPCODE(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE])), FUNC(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE])),CURRENT_STATE.REGS[7]);
  
 
 
