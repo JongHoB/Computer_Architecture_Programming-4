@@ -43,7 +43,7 @@ void IF(){
     //IF instruction DELAY after ID stage stall
     if(CURRENT_STATE.PIPE_STALL[IF_STAGE]==1){
         CURRENT_STATE.PIPE_STALL[IF_STAGE]=0;
-        return;
+        CURRENT_STATE.PC = CURRENT_STATE.PIPE[IF_STAGE];
     }
 
     //ID stage stalled
@@ -83,7 +83,7 @@ void IF(){
 
     CURRENT_STATE.IF_ID.NPC=CURRENT_STATE.PC;
 
-    
+printf("OPCODE in fetch_Bit %d, fetch: 0x%x, FUNC: 0x%x\n",FETCH_BIT, OPCODE(get_inst_info(CURRENT_STATE.PIPE[IF_STAGE])),FUNC(get_inst_info(CURRENT_STATE.PIPE[IF_STAGE])));    
 return;
 }
 
@@ -113,10 +113,24 @@ void ID(){
     //IF->ID->EX stage DELAY 
     if(CURRENT_STATE.PIPE_STALL[ID_STAGE]==1){
         CURRENT_STATE.PIPE_STALL[ID_STAGE]=0;
-        return;
+    //     CURRENT_STATE.ID_EX.REG1=CURRENT_STATE.REGS[(int)RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))];
+    //     CURRENT_STATE.ID_EX.REG2=CURRENT_STATE.REGS[(int)RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))];
+    //     CURRENT_STATE.ID_EX.IMM=IMM(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])); 
+    //     CURRENT_STATE.ID_EX.SIGN_EX_IMM=SIGN_EX(CURRENT_STATE.ID_EX.IMM);
+    // printf("ID stage / OPCODE : 0x%x, FUNC 0x%x, RS: %llu , RT: %llu ,REG1: %llu , REG2 : %llu , IMM: %llu\n",OPCODE(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])),FUNC(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])), RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])),RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])),CURRENT_STATE.ID_EX.REG1,CURRENT_STATE.ID_EX.REG2,CURRENT_STATE.ID_EX.IMM); 
+    //     //lw,sw,beq instruction Write Register comes from RT field
+    //     CURRENT_STATE.ID_EX.DEST=(int)RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]));
+    //     //R-Type
+    //     //Write Register comes from RD field
+    //     if(OPCODE(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))==0x0)
+    //     {
+    //         CURRENT_STATE.ID_EX.DEST=(int)RD(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]));
+    //     }
+    }else{
+       CURRENT_STATE.PIPE[ID_STAGE]=CURRENT_STATE.PIPE[IF_STAGE]; 
     }
 
-    CURRENT_STATE.PIPE[ID_STAGE]=CURRENT_STATE.PIPE[IF_STAGE];
+    // CURRENT_STATE.PIPE[ID_STAGE]=CURRENT_STATE.PIPE[IF_STAGE];
 
     if(!CURRENT_STATE.PIPE[ID_STAGE]){
         return;
@@ -175,7 +189,7 @@ void ID(){
         
         return;
     }
-
+    
     //LOAD instruction ID stage-1
     CURRENT_STATE.ID_EX.NPC=CURRENT_STATE.IF_ID.NPC;
 
@@ -186,7 +200,7 @@ void ID(){
    
     CURRENT_STATE.ID_EX.IMM=IMM(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])); 
     CURRENT_STATE.ID_EX.SIGN_EX_IMM=SIGN_EX(CURRENT_STATE.ID_EX.IMM);
-    printf("RS: %llu , RT: %llu ,REG1: %llu , REG2 : %llu , IMM: %llu\n",RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])),RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])),CURRENT_STATE.ID_EX.REG1,CURRENT_STATE.ID_EX.REG2,CURRENT_STATE.ID_EX.IMM); 
+    printf("ID stage / OPCODE : 0x%x, FUNC 0x%x, RS: %llu , RT: %llu ,REG1: %llu , REG2 : %llu , IMM: %llu\n",OPCODE(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])),FUNC(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])), RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])),RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE])),CURRENT_STATE.ID_EX.REG1,CURRENT_STATE.ID_EX.REG2,CURRENT_STATE.ID_EX.IMM); 
     //Modified pipeline datapath for LOAD instruction
     //lw,sw,beq instruction Write Register comes from RT field
     CURRENT_STATE.ID_EX.DEST=(int)RT(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]));
@@ -245,6 +259,10 @@ void ID(){
             case 0x0://R-Type
 
             //FORWARDING_BIT=FALSE; --> WHY BORDER...?
+
+            if(CURRENT_STATE.PIPE[EX_STAGE]==0){
+                return;
+            }
 
             if(CURRENT_STATE.MEM_WB.DEST!=0&&CURRENT_STATE.MEM_WB.DEST==(int)RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))&&!(OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]))==(0x23||0x0)&&CURRENT_STATE.EX_MEM.DEST!=0&&CURRENT_STATE.EX_MEM.DEST!=(int)RS(get_inst_info(CURRENT_STATE.PIPE[ID_STAGE]))))
             {
@@ -386,6 +404,7 @@ void EX(){
                 break;
                 case 0x00:
                 CURRENT_STATE.EX_MEM.ALU_OUT = CURRENT_STATE.ID_EX.REG2 << SHAMT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]));
+                printf("DEST:%d\n",CURRENT_STATE.EX_MEM.DEST);
                 break;
                 case 0x02:
                 CURRENT_STATE.EX_MEM.ALU_OUT = CURRENT_STATE.ID_EX.REG2 >> SHAMT(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE]));
@@ -406,9 +425,7 @@ void EX(){
         break;
 
     }
-    printf("EX_MEM.ALU_OUT : 0x%x\n",CURRENT_STATE.EX_MEM.ALU_OUT);
-    // printf("func: %llu\n",FUNC(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE])));
-    // printf("opcode: %llu\n",OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE])));
+    printf("EX stage OPCODE 0x%x, FUNC 0x%x EX_MEM.ALU_OUT : 0x%x\n",OPCODE(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE])),FUNC(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE])), CURRENT_STATE.EX_MEM.ALU_OUT);
     // printf("BR_TAKE: 0x%x\n",CURRENT_STATE.EX_MEM.BR_TAKE);
 
 return;
@@ -468,16 +485,17 @@ void MEM(){
             case 0x5:		//(0x000101)BNE
             //conditional branches(BEQ,BNE)
             //branch taken
+            // printf("MEM stage branch\n");
             if(CURRENT_STATE.EX_MEM.BR_TAKE){
-       
+    //    printf("branch taken in MEM\n");
                 //Flush the pipeline in IF,ID,EX stage
+                BRANCH_INST(1,CURRENT_STATE.EX_MEM.BR_TAKE,);
                 CURRENT_STATE.PIPE_STALL[IF_STAGE]=CURRENT_STATE.PC;
                 CURRENT_STATE.PIPE_STALL[ID_STAGE]=CURRENT_STATE.PIPE[IF_STAGE];
                 CURRENT_STATE.PIPE_STALL[EX_STAGE]=CURRENT_STATE.PIPE[ID_STAGE];
                 CURRENT_STATE.PIPE[IF_STAGE]=0;
                 CURRENT_STATE.PIPE[ID_STAGE]=0;
                 CURRENT_STATE.PIPE[EX_STAGE]=0;
-                BRANCH_INST(1,CURRENT_STATE.EX_MEM.BR_TAKE,);
                 CURRENT_STATE.EX_MEM.BR_TAKE=0;
             }
             break;
@@ -486,7 +504,7 @@ void MEM(){
             break;
 
         }
- 
+printf("MEM stage OPCODE 0x%x, FUNC 0x%x \n",OPCODE(get_inst_info(CURRENT_STATE.PIPE[MEM_STAGE])),FUNC(get_inst_info(CURRENT_STATE.PIPE[MEM_STAGE]))); 
 return;
 }
 
@@ -564,7 +582,7 @@ void WB(){
             break;
 
         }
-        printf("opcode: %llu, func: %llu REGS7:0x%x\n", OPCODE(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE])), FUNC(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE])),CURRENT_STATE.REGS[7]);
+        printf("WB stage/ opcode: 0x%x, func: 0x%x REGS7:0x%x\n", OPCODE(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE])), FUNC(get_inst_info(CURRENT_STATE.PIPE[WB_STAGE])),CURRENT_STATE.REGS[7]);
  
 
 
