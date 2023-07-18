@@ -92,22 +92,14 @@ typedef struct {
     uint32_t W_VALUE;
     uint32_t BR_TAKE;
     int DEST;
-
-    //Forwarding
-    unsigned char FORWORD_REG;
-    uint32_t FORWORD_VALUE;
 }EXMEM;
 
 typedef struct {
     uint32_t NPC;
-    uint32_t ALU_OUT;//??
+    uint32_t ALU_OUT;
     uint32_t MEM_OUT;
     uint32_t BR_TAKE;
     int DEST;
-
-    //Forwarding
-    unsigned char FORWORD_REG;
-    uint32_t FORWORD_VALUE;
 }MEMWB;
 
 
@@ -125,14 +117,8 @@ typedef struct CPU_State_Struct {
     IDEX ID_EX;//1
     EXMEM EX_MEM;//2
     MEMWB MEM_WB;//3
-
-    int PIPELINE_REGS_LOCK[4]; //To lock pipeline registers
     
-    //To choose right PC
-    uint32_t IF_PC;
     uint32_t JUMP_PC;
-    uint32_t BRANCH_PC;
-
 
 } CPU_State;
 
