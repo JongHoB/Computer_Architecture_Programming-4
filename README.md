@@ -29,3 +29,6 @@ The `process_instruction()` function is used by the `cycle()` function to simula
 Each `cycle()` the pipeline will advance to the next instruction (if there are no stalls/hazards, etc.).
 Your internal register, memory, and pipeline register state should be updated according to the instruction
 that is being executed at each stage.
+
+## ATTENTION
+The `Makefile` could not be executed in Mac OS because of `timeout` command. I recommend you use Linux. (OR you can just delete the command in Makefile)
