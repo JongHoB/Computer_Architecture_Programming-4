@@ -364,7 +364,7 @@ void EX(){
         break;
 
         //TYPE R
-        case 0x0:		//(0x000000)ADDU, AND, NOR, OR, SLTU, SLL, SRL, SUBU  if JR
+        case 0x0:		//(0x000000)ADDU, AND, NOR, OR, SLTU, SLL, SRL, SUBU
             switch(FUNC(get_inst_info(CURRENT_STATE.PIPE[EX_STAGE])))
             {
                 case 0x21:
@@ -577,7 +577,7 @@ void process_instruction()
     EX();
     ID();
     IF();
-    //ONLY THERE WAS INSTRUCTION IN WB, IT ENDS
+    //ONLY INSTRUCTION IN WB, IT ENDS
     if(!CURRENT_STATE.PIPE[IF_STAGE]&&!CURRENT_STATE.PIPE[ID_STAGE]&&!CURRENT_STATE.PIPE[EX_STAGE]&&!CURRENT_STATE.PIPE[MEM_STAGE]){
         RUN_BIT=FALSE;
     }
